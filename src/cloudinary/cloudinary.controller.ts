@@ -8,22 +8,21 @@ import {
   Delete,
   HttpException,
   HttpStatus,
-  ParseIntPipe,
+  Body,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CloudinaryService } from './cloudinary.service';
-import { diskStorage, memoryStorage } from 'multer';
+import { memoryStorage } from 'multer';
 
 @Controller('cloudinary')
 export class CloudinaryController {
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
-  // Upload - usamos memoryStorage para tener file.buffer
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+      limits: { fileSize: 50 * 1024 * 1024 },
     }),
   )
   async upload(@UploadedFile() file: Express.Multer.File) {
@@ -52,7 +51,6 @@ export class CloudinaryController {
     }
   }
 
-  // Get details about a file by public_id (url safe) - publicId param must be url encoded if contains slashes
   @Get('file/:publicId')
   async getFile(@Param('publicId') publicId: string) {
     try {
@@ -76,5 +74,41 @@ export class CloudinaryController {
       console.error(err);
       throw new HttpException('Delete failed', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  private videos: any[] = [];
+
+  @Post('videos')
+  async createVideo(@Body() body: any) {
+    const { url, publicId, duration } = body;
+
+    if (!url || !publicId) {
+      throw new HttpException(
+        'Missing video data',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const video = {
+      id: Date.now(),
+      url,
+      publicId,
+      duration,
+      createdAt: new Date(),
+    };
+
+    this.videos.push(video);
+    return video;
+  }
+
+  @Get('videos')
+  async getVideos() {
+    return this.videos;
+  }
+
+  @Delete('videos/:publicId')
+  async deleteVideo(@Param('publicId') publicId: string) {
+    this.videos = this.videos.filter(v => v.publicId !== publicId);
+    return { deleted: true };
   }
 }
